@@ -9,8 +9,15 @@ airline-analytics/
 ├── data/
 │   └── raw/              # Raw datasets (train.csv, test.csv)
 ├── notebooks/            # Jupyter notebooks for analysis
+│   ├── 01_business_understanding.md
 │   └── descriptive_analytics.ipynb
-├── results/              # Output files, visualizations, reports
+├── reports/              # Project deliverables organized by type
+│   ├── phase_reports/    # Individual CRISP-DM phase reports
+│   ├── visualizations/   # Plots, charts, and figures
+│   ├── models/           # Saved model files
+│   └── final/            # Final report and presentation
+├── results/              # Temporary output files
+├── CRISP-DM_Status.md    # Project status tracker
 └── README.md             # This file
 ```
 
