@@ -49,10 +49,10 @@ def get_preprocessor(X_sample):
             raise ValueError(f"Column {col} missing from input data")
 
     # For numerical features: impute missing delay values with median
-    # and scale using StandardScaler because of outliers
+    # Note: We don't scale because decision trees don't need it
+    # (trees split on thresholds, not distances)
     numerical_transformer = Pipeline(steps=[
-        ('imputer', SimpleImputer(strategy='median')),
-        ('scaler', StandardScaler())
+        ('imputer', SimpleImputer(strategy='median'))
     ])
 
     # For 'Class' feature: ordinal encoding (Economy < Eco Plus < Business)
