@@ -17,6 +17,7 @@ from sklearn.pipeline import Pipeline
 
 # Import functions from preprocessing file
 from preprocessing import load_data, get_preprocessor
+from sklearn.model_selection import cross_validate
 
 # Load train and test data
 X_train_full, y_train_full = load_data('train.csv', data_dir='data/raw')
@@ -34,12 +35,15 @@ clf = Pipeline(steps=[('preprocessor', preprocessor),
 
 # Cross Validation, using stratified kfold to keep class balance
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-scores_acc = cross_val_score(clf, X_train_full, y_train_full, cv=cv, scoring='accuracy')
-scores_auc = cross_val_score(clf, X_train_full, y_train_full, cv=cv, scoring='roc_auc')
+cv_results = cross_validate(
+    clf, X_train_full, y_train_full, 
+    cv=cv, 
+    scoring={'accuracy': 'accuracy', 'roc_auc': 'roc_auc'}
+)
 
 print(f"--- 5-Fold Cross-Validation Results ---")
-print(f"Mean Accuracy: {scores_acc.mean():.4f}")
-print(f"Mean AUC: {scores_auc.mean():.4f}")
+print(f"Mean Accuracy: {cv_results['test_accuracy'].mean():.4f}")
+print(f"Mean AUC: {cv_results['test_roc_auc'].mean():.4f}")
 
 # Evaluation on test data
 
