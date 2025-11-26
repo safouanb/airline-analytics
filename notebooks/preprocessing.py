@@ -8,13 +8,16 @@ Original file is located at
 """
 
 import pandas as pd
+from pathlib import Path
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder, OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 
 # Helper function to load data
-def load_data(file_path):
+def load_data(file_name, data_dir='data/raw'):
+    """Load data from CSV file. Looks in data_dir for the file."""
+    file_path = Path(data_dir) / file_name
     df = pd.read_csv(file_path)
 
     # Drop the id columns, we don't need them for prediction

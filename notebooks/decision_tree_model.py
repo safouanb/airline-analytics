@@ -19,8 +19,8 @@ from sklearn.pipeline import Pipeline
 from preprocessing import load_data, get_preprocessor
 
 # Load train and test data
-X_train_full, y_train_full = load_data('train.csv')
-X_test_final, y_test_final = load_data('test.csv')
+X_train_full, y_train_full = load_data('train.csv', data_dir='data/raw')
+X_test_final, y_test_final = load_data('test.csv', data_dir='data/raw')
 
 # Get the preprocessor
 preprocessor = get_preprocessor(X_train_full)
