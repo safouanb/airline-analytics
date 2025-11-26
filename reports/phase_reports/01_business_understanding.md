@@ -4,7 +4,7 @@
 
 ### Dataset
 
-Customer Satisfaction (Airline) - This dataset contains data about customers for an airline company. Customer satisfaction is an important metric for a company's success. It would be interesting to predict customer satisfaction and identify the underlying drivers for customer satisfaction from the company's success.
+Customer Satisfaction (Airline), This dataset contains data about customers for an airline company. Customer satisfaction is an important metric for a company's success. It would be interesting to predict customer satisfaction and identify the underlying drivers for customer satisfaction from the company's success.
 
 ### Problem Description
 
@@ -80,7 +80,39 @@ The project scope explicitly excludes development of production systems for real
 
 ---
 
-## 9. Initial Data Understanding (Preliminary)
+## 9. Business Understanding of the Data
+
+The dataset contains information that captures the complete customer journey from booking to arrival, allowing us to understand how different aspects of the airline experience contribute to overall satisfaction. The variables in the dataset can be understood from a business perspective as representing three key dimensions of the airline's operations: customer characteristics, service quality touchpoints, and operational performance.
+
+Customer characteristic variables include demographic information such as Gender and Age, which help the airline understand its customer base and identify potential demographic patterns in satisfaction. The Customer Type variable distinguishes between Loyal and Disloyal customers, which is crucial for the business as loyal customers represent recurring revenue and are typically more valuable to the airline. The Type of Travel variable (Business versus Personal Travel) is important because business travelers often have different expectations, higher tolerance for certain inconveniences, and represent a more stable revenue stream. The Class variable (Business, Eco, Eco Plus) directly relates to pricing strategy and service tier offerings, where higher classes typically command premium prices and are expected to deliver superior experiences.
+
+Service quality variables represent the various touchpoints where customers interact with the airline throughout their journey. These include pre-flight services such as Ease of Online booking and Online boarding, which relate to the digital experience and operational efficiency. Airport services include Gate location, Checkin service, and Baggage handling, which represent the ground operations that customers experience before and after the flight. In-flight services encompass Food and drink, Seat comfort, Leg room service, Inflight entertainment, Inflight service, On-board service, and Cleanliness, which directly relate to the core product experience during the flight. Connectivity services include Inflight wifi service and Departure/Arrival time convenient, which relate to modern customer expectations for connectivity and schedule flexibility.
+
+From a business perspective, these service quality variables represent areas where the airline can invest resources to improve customer experience. Understanding which of these services have the strongest relationship with overall satisfaction helps the airline prioritize investments and allocate resources effectively. For example, if seat comfort has a stronger relationship with satisfaction than gate location, the airline might prioritize investments in aircraft seating over terminal improvements.
+
+Operational variables include Flight Distance, Departure Delay in Minutes, and Arrival Delay in Minutes. Flight Distance relates to the route network and operational complexity, where longer flights may require different service standards and customer expectations. Delays represent operational performance and directly impact customer experience, as delays are one of the most common sources of customer complaints in the airline industry. Understanding how delays affect satisfaction, and how service quality can mitigate the negative impact of delays, is crucial for operational decision-making.
+
+The target variable, Satisfaction, represents the overall customer sentiment and is the ultimate measure of whether the airline has successfully delivered a positive experience. This variable is critical for the business because satisfied customers are more likely to return, recommend the airline to others, and provide stable revenue through repeat business. Dissatisfied customers, on the other hand, may switch to competitors, leave negative reviews, and reduce the airline's market share and profitability.
+
+---
+
+## 10. Target Variable Selection
+
+The satisfaction variable is selected as the target variable for this data mining project because it directly aligns with the business objective of improving the airline's business model through understanding and optimizing customer experience. Satisfaction serves as a comprehensive outcome measure that captures the overall customer experience across all touchpoints, from booking to arrival.
+
+From a business perspective, satisfaction is the most relevant target variable because it directly relates to customer retention, loyalty, and long-term profitability. Satisfied customers are more likely to become repeat customers, which is crucial for the airline's revenue stability. They are also more likely to recommend the airline to others, contributing to organic growth through word-of-mouth marketing. Additionally, satisfied customers are less likely to switch to competitors, reducing customer churn and the associated costs of acquiring new customers to replace lost ones.
+
+The satisfaction variable is also appropriate because it is actionable. Unlike other potential target variables such as revenue or profit, which may be influenced by external factors beyond the airline's control, satisfaction is directly influenced by the services and experiences that the airline provides. This means that insights derived from predicting satisfaction can be translated into concrete actions to improve service delivery, operational performance, and resource allocation.
+
+Alternative target variables were considered but deemed less suitable for this project. Customer retention or churn prediction could be valuable, but these would require longitudinal data tracking customers over multiple flights, which is not available in this dataset. Revenue per customer could be interesting, but it is not included in the dataset and would require additional data sources. Service-specific ratings could be used as targets, but these represent intermediate outcomes rather than the ultimate business objective of overall customer satisfaction.
+
+The satisfaction variable is structured as a binary classification problem (satisfied versus neutral or dissatisfied), which is appropriate for several reasons. First, it simplifies the prediction task while still capturing the essential distinction between positive and negative experiences. Second, it aligns with business decision-making, where the airline needs to identify customers at risk of dissatisfaction to intervene proactively. Third, binary classification models are well-established and interpretable, allowing for clear communication of results to business stakeholders.
+
+The slight class imbalance in the satisfaction variable (56.7% neutral or dissatisfied versus 43.3% satisfied) reflects the reality that dissatisfaction is somewhat more common than satisfaction in the airline industry, which is consistent with industry trends where customer complaints often outnumber positive feedback. This imbalance is not severe enough to require special handling techniques, but it will be considered during model training to ensure that predictions are not biased toward the majority class.
+
+---
+
+## 11. Initial Data Understanding (Preliminary)
 
 ### 2.1 Initial Exploration
 
@@ -100,7 +132,7 @@ When examining the summary statistics for the categorical variables, we can see 
 
 ### 2.4 Satisfaction (Target Variable) Analysis
 
-The satisfaction variable, which will most likely serve as the target variable for our prediction model, shows a slightly imbalanced distribution. About 56.7% of customers are classified as neutral or dissatisfied, while 43.3% are satisfied. This indicates that dissatisfaction or neutrality is somewhat more common among customers. The imbalance is not severe, but it should still be considered during model training to ensure that predictions are not biased toward the majority class.
+The satisfaction variable, which serves as our target variable for the prediction model, shows a slightly imbalanced distribution. About 56.7% of customers are classified as neutral or dissatisfied, while 43.3% are satisfied. This indicates that dissatisfaction or neutrality is somewhat more common among customers. The imbalance is not severe, but it should still be considered during model training to ensure that predictions are not biased toward the majority class. This distribution reflects the reality of the airline industry where customer complaints and neutral experiences often outnumber highly satisfied experiences, making it an important business challenge to address.
 
 ### 2.6 Average Satisfaction Scores per Category
 
@@ -120,7 +152,7 @@ The Flight Distance Distribution graph is skewed towards shorter distance flight
 
 ---
 
-## 10. Expected Deliverables
+## 12. Expected Deliverables
 
 The project will deliver several key outputs across the CRISP-DM phases. Phase 1, Business Understanding, will provide complete business context and objectives, research questions and success criteria, and an initial data understanding summary. Phase 2, Data Understanding, will deliver a comprehensive exploratory data analysis with detailed visualizations and statistical summaries, data quality assessment, and key patterns and initial insights.
 
@@ -130,13 +162,13 @@ Phase 5, Evaluation, will deliver model performance metrics including accuracy, 
 
 ---
 
-## 11. Timeline
+## 13. Timeline
 
 The project follows a seven-week timeline aligned with the CRISP-DM methodology. Week 2 focuses on Business Understanding, which is now complete with this report. Week 3 is dedicated to Data Understanding, which is currently in progress and will deliver an EDA report with visualizations. Weeks 3-4 cover Data Preparation, delivering a cleaned dataset and feature engineering. Weeks 4-5 focus on Modeling, delivering trained models and comparison. Week 6 covers Evaluation, delivering performance metrics and validation. Week 7 concludes with the Final Report, delivering the complete CRISP-DM report.
 
 ---
 
-## 12. Next Steps
+## 14. Next Steps
 
 The immediate actions for Week 3 include completing the Data Understanding phase with a deep dive into customer segments including loyal versus disloyal customers, business versus personal travel, and class differences, conducting statistical analysis of satisfaction drivers, performing gap analysis between satisfied and dissatisfied customers, and creating comprehensive visualizations.
 
@@ -144,7 +176,7 @@ We also need to prepare for the teacher meeting by presenting research objective
 
 ---
 
-## 13. Notes for Teacher Meeting (Week 3)
+## 15. Notes for Teacher Meeting (Week 3)
 
 The key points to present during the teacher meeting include our research focus on using data mining to identify satisfaction drivers and predict satisfaction to improve the business model, our approach using classification models to predict satisfaction with emphasis on feature importance and customer segmentation, and our expected outcomes of actionable insights for service improvement and customer retention strategies.
 
@@ -154,4 +186,3 @@ Questions to discuss include preference for modeling approach, specifically whet
 
 **Document Version**: 1.0  
 **Last Updated**: Week 2  
-**Status**: Complete - Ready for Teacher Meeting
