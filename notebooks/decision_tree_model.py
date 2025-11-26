@@ -179,7 +179,7 @@ imp_eco = get_importance_for_subset('Class', 'Eco')
 imp_plus = get_importance_for_subset('Class', 'Eco Plus')
 
 df_class_comp = pd.DataFrame({'Business': imp_bus, 'Economy': imp_eco, 'Eco Plus': imp_plus})
-df_class_comp = df_class_comp.sort_values(by='Business', ascending=False).head(8)
+df_class_comp = df_class_comp.fillna(0).sort_values(by='Business', ascending=False).head(8)
 
 df_class_comp.plot(kind='bar', figsize=(14, 6), width=0.8, color=['#4c72b0', '#dd8452', '#55a868'])
 plt.title('Feature Importance by Travel Class')
@@ -194,7 +194,7 @@ imp_biz_travel = get_importance_for_subset('Type of Travel', 'Business travel')
 imp_personal = get_importance_for_subset('Type of Travel', 'Personal Travel')
 
 df_type_comp = pd.DataFrame({'Business Travel': imp_biz_travel, 'Personal Travel': imp_personal})
-df_type_comp = df_type_comp.sort_values(by='Business Travel', ascending=False).head(8)
+df_type_comp = df_type_comp.fillna(0).sort_values(by='Business Travel', ascending=False).head(8)
 
 df_type_comp.plot(kind='bar', figsize=(12, 6), width=0.8, color=['#8172b3', '#c44e52'])
 plt.title('Feature Importance by Type of Travel')
