@@ -14,19 +14,21 @@ from sklearn.tree import DecisionTreeClassifier, plot_tree, export_text
 from sklearn.model_selection import cross_val_score, StratifiedKFold
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve, accuracy_score
 from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder, OneHotEncoder
+from sklearn.impute import SimpleImputer
 
 # Import functions from preprocessing file
 from preprocessing import load_data, get_preprocessor
 from sklearn.model_selection import cross_validate
 
-# Load train and test data
+# Load train data
 X_train_full, y_train_full = load_data('train.csv', data_dir='data/raw')
-X_test_final, y_test_final = load_data('test.csv', data_dir='data/raw')
 
 # Get the preprocessor
 preprocessor = get_preprocessor(X_train_full)
 
-# Model setup
+# MODEL 1 (Full Model) 
 # Use min_samples_split=20 to stop the tree from overfitting
 dt_model = DecisionTreeClassifier(random_state=42, min_samples_split=20)
 
@@ -41,20 +43,10 @@ cv_results = cross_validate(
     scoring={'accuracy': 'accuracy', 'roc_auc': 'roc_auc'}
 )
 
-print(f"--- 5-Fold Cross-Validation Results ---")
+print(f"--- FULL MODEL 5-Fold Cross-Validation Results ---")
 print(f"Mean Accuracy: {cv_results['test_accuracy'].mean():.4f}")
 print(f"Mean AUC: {cv_results['test_roc_auc'].mean():.4f}")
-
-# Evaluation on test data
-
-print("\nTraining final model on full Train set and evaluating on Test set...")
-clf.fit(X_train_full, y_train_full)
-
-y_pred_final = clf.predict(X_test_final)
-final_accuracy = accuracy_score(y_test_final, y_pred_final)
-
-print(f"--- FINAL TEST SET RESULTS ---")
-print(f"Accuracy on test.csv: {final_accuracy:.4f}")
+print("-" * 30)
 
 # Global Feature Importance
 # Reconstruct feature names
@@ -78,37 +70,6 @@ plt.gca().invert_yaxis()
 plt.tight_layout()
 plt.savefig('dt_feature_importance.png')
 print("Saved dt_feature_importance.png")
-
-# Confusion Matrix and ROC (on test data)
-cm = confusion_matrix(y_test_final, y_pred_final)
-print("\n--- Confusion Matrix (Text) ---")
-cm_df = pd.DataFrame(cm,
-                     index=['Actual: Neutral/Dissatisfied', 'Actual: Satisfied'],
-                     columns=['Pred: Neutral/Dissatisfied', 'Pred: Satisfied'])
-print(cm_df)
-print("-" * 30)
-
-# Confusion Matrix Plot
-plt.figure(figsize=(6, 5))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False)
-plt.title('Confusion Matrix (Test Set)')
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.savefig('dt_confusion_matrix.png')
-print("Saved dt_confusion_matrix.png")
-
-# ROC Curve
-y_pred_proba_test = clf.predict_proba(X_test_final)[:, 1]
-fpr, tpr, _ = roc_curve(y_test_final, y_pred_proba_test)
-final_auc = roc_auc_score(y_test_final, y_pred_proba_test)
-
-plt.figure(figsize=(6, 5))
-plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'AUC = {final_auc:.2f}')
-plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-plt.title('ROC Curve (Test Set)')
-plt.legend(loc="lower right")
-plt.savefig('dt_roc_curve.png')
-print("Saved dt_roc_curve.png")
 
 # Tree Visualization & Rules (Depth 3)
 # Fitting a smaller tree
@@ -203,3 +164,66 @@ plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
 plt.savefig('subgroup_type_comparison.png')
 print("Saved subgroup_type_comparison.png")
+
+
+# MODEL 2 (Top 7 Features)
+# based on feature importance, we build a simpler model
+features_top7 = [
+    'Online boarding', 'Inflight wifi service', 'Type of Travel', 'Class', 
+    'Inflight entertainment', 'Customer Type', 'Leg room service'
+]
+
+# Create subset of data
+X_train_7 = X_train_full[features_top7].copy()
+
+# Define a local pipeline just for these 7 features
+# (can't use the shared preprocessor because it expects Gender/Gate Location etc)
+prep_7 = ColumnTransformer(transformers=[
+    ('num', Pipeline(steps=[('imputer', SimpleImputer(strategy='median')), ('scaler', StandardScaler())]), 
+     ['Online boarding', 'Inflight wifi service', 'Inflight entertainment', 'Leg room service']),
+    ('ord', Pipeline(steps=[('encoder', OrdinalEncoder(categories=[['Eco', 'Eco Plus', 'Business']]))]), 
+     ['Class']),
+    ('cat', Pipeline(steps=[('encoder', OneHotEncoder(drop='first'))]), 
+     ['Type of Travel', 'Customer Type'])
+])
+
+clf_7 = Pipeline(steps=[('preprocessor', prep_7),
+                        ('classifier', DecisionTreeClassifier(random_state=42, min_samples_split=20))])
+
+print("Running 5-Fold CV on SIMPLE Model (Top 7)...")
+scores_acc_7 = cross_val_score(clf_7, X_train_7, y_train_full, cv=cv, scoring='accuracy')
+scores_auc_7 = cross_val_score(clf_7, X_train_7, y_train_full, cv=cv, scoring='roc_auc')
+
+print(f"Simple Model Accuracy: {scores_acc_7.mean():.4f}")
+print(f"Simple Model AUC:      {scores_auc_7.mean():.4f}")
+print("-" * 30)
+
+# MODEL 3 (Top 5 Features)
+# Checking performance of a model with just top 5 features
+
+features_top5 = [
+    'Online boarding', 'Inflight wifi service', 'Type of Travel', 'Class', 'Inflight entertainment'
+]
+
+X_train_5 = X_train_full[features_top5].copy()
+
+# Define local pipeline for Top 5
+prep_5 = ColumnTransformer(transformers=[
+    ('num', Pipeline(steps=[('imputer', SimpleImputer(strategy='median')), ('scaler', StandardScaler())]), 
+     ['Online boarding', 'Inflight wifi service', 'Inflight entertainment']),
+    ('ord', Pipeline(steps=[('encoder', OrdinalEncoder(categories=[['Eco', 'Eco Plus', 'Business']]))]), 
+     ['Class']),
+    ('cat', Pipeline(steps=[('encoder', OneHotEncoder(drop='first'))]), 
+     ['Type of Travel'])
+])
+
+clf_5 = Pipeline(steps=[('preprocessor', prep_5),
+                        ('classifier', DecisionTreeClassifier(random_state=42, min_samples_split=20))])
+
+print("Running 5-Fold CV on ULTRA-SIMPLE Model (Top 5)...")
+scores_acc_5 = cross_val_score(clf_5, X_train_5, y_train_full, cv=cv, scoring='accuracy')
+scores_auc_5 = cross_val_score(clf_5, X_train_5, y_train_full, cv=cv, scoring='roc_auc')
+
+print(f"Ultra-Simple Accuracy: {scores_acc_5.mean():.4f}")
+print(f"Ultra-Simple AUC:      {scores_auc_5.mean():.4f}")
+print("-" * 30)
