@@ -24,14 +24,13 @@ from preprocessing import load_data, get_preprocessor
 # ============================================================================
 # STEP 1: LOAD DATA
 # ============================================================================
-# Load the training and test datasets from the data/raw directory
+# Load the training dataset from the data/raw directory
+# Following same approach as decision tree model - focus on cross-validation
 # X contains all features (service ratings, delays, demographics, etc.)
 # y contains the target variable (satisfied = 1, dissatisfied = 0)
-print("Loading data...")
+print("Loading training data...")
 X_train_full, y_train_full = load_data('train.csv', data_dir='data/raw')
-X_test_final, y_test_final = load_data('test.csv', data_dir='data/raw')
 print(f"Training samples: {len(X_train_full):,}")
-print(f"Test samples: {len(X_test_final):,}")
 
 # ============================================================================
 # STEP 2: CREATE PREPROCESSING PIPELINE
@@ -91,40 +90,24 @@ cv_results = cross_validate(
     scoring={'accuracy': 'accuracy', 'roc_auc': 'roc_auc'}
 )
 
-# Display cross-validation results with standard deviation
-# Standard deviation shows how consistent the model is across different data splits
-print(f"\n--- 5-Fold Cross-Validation Results ---")
-print(f"Mean Accuracy: {cv_results['test_accuracy'].mean():.4f} (+/- {cv_results['test_accuracy'].std():.4f})")
-print(f"Mean AUC: {cv_results['test_roc_auc'].mean():.4f} (+/- {cv_results['test_roc_auc'].std():.4f})")
+# Display cross-validation results
+# Focus on cross-validation performance instead of test set evaluation
+# This approach matches the decision tree model and follows best practices
+print(f"\n--- FULL MODEL 5-Fold Cross-Validation Results ---")
+print(f"Mean Accuracy: {cv_results['test_accuracy'].mean():.4f}")
+print(f"Mean AUC: {cv_results['test_roc_auc'].mean():.4f}")
+print("-" * 30)
 
 # ============================================================================
-# STEP 5: TRAIN FINAL MODEL AND EVALUATE ON TEST SET
+# STEP 5: TRAIN FINAL MODEL FOR FEATURE ANALYSIS
 # ============================================================================
-# Now train the model on the FULL training set (all 103k samples)
-# Then evaluate on the held-out test set to get final performance metrics
-print("\nTraining final model on full training set...")
+# Train the model on full training set to analyze feature importance
+# We focus on cross-validation results for performance evaluation
+print("\nTraining full model for feature importance analysis...")
 clf.fit(X_train_full, y_train_full)
 
-# Make predictions on test set
-# y_pred_final: Class predictions (0 or 1)
-# y_pred_proba_test: Probability of being satisfied (for ROC curve)
-print("Evaluating on test set...")
-y_pred_final = clf.predict(X_test_final)
-y_pred_proba_test = clf.predict_proba(X_test_final)[:, 1]
-
-# Calculate final performance metrics
-final_accuracy = accuracy_score(y_test_final, y_pred_final)
-final_auc = roc_auc_score(y_test_final, y_pred_proba_test)
-
-print(f"\n{'='*50}")
-print(f"FINAL TEST SET RESULTS")
-print(f"{'='*50}")
-print(f"Accuracy: {final_accuracy:.4f}")
-print(f"AUC: {final_auc:.4f}")
-print(f"{'='*50}")
-
 # ============================================================================
-# STEP 6: FEATURE IMPORTANCE ANALYSIS
+# STEP 6: GLOBAL FEATURE IMPORTANCE ANALYSIS
 # ============================================================================
 # Identify which features (service ratings, delays, etc.) are most important
 # for predicting customer satisfaction
@@ -149,65 +132,20 @@ importances = clf.named_steps['classifier'].feature_importances_
 feat_imp = pd.Series(importances, index=feature_names).sort_values(ascending=False)
 
 # Plot the top 10 most important features
+# Use consistent styling with decision tree model
 plt.figure(figsize=(10, 6))
 feat_imp.head(10).plot(kind='barh', color='#55a868')
-plt.title('Top 10 Drivers of Satisfaction (Random Forest)', fontsize=14, fontweight='bold')
+plt.title('Top 10 Drivers of Satisfaction (Random Forest)')
 plt.xlabel('Relative Importance (Mean Decrease in Impurity)')
 plt.ylabel('Feature')
 plt.gca().invert_yaxis()  # Highest importance at the top
 plt.tight_layout()
-plt.savefig('rf_feature_importance.png', dpi=150)
-print("✓ Saved: rf_feature_importance.png")
+plt.savefig('rf_feature_importance.png')
+print("Saved rf_feature_importance.png")
+
 
 # ============================================================================
-# STEP 7: CONFUSION MATRIX
-# ============================================================================
-# Shows how many predictions were correct vs incorrect
-# Helps identify if model is biased toward one class
-print("\n--- Generating Confusion Matrix ---")
-cm = confusion_matrix(y_test_final, y_pred_final)
-
-# Display as a formatted table
-cm_df = pd.DataFrame(cm,
-                     index=['Actual: Neutral/Dissatisfied', 'Actual: Satisfied'],
-                     columns=['Pred: Neutral/Dissatisfied', 'Pred: Satisfied'])
-print(cm_df)
-print("-" * 50)
-
-# Create visual heatmap of confusion matrix
-plt.figure(figsize=(6, 5))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Greens', cbar=False)
-plt.title('Confusion Matrix (Test Set)', fontsize=14, fontweight='bold')
-plt.xlabel('Predicted', fontsize=12)
-plt.ylabel('Actual', fontsize=12)
-plt.tight_layout()
-plt.savefig('rf_confusion_matrix.png', dpi=150)
-print("✓ Saved: rf_confusion_matrix.png")
-
-# ============================================================================
-# STEP 8: ROC CURVE
-# ============================================================================
-# ROC curve shows the trade-off between true positive rate and false positive rate
-# AUC (Area Under Curve) summarizes performance: 1.0 = perfect, 0.5 = random guess
-print("\n--- Generating ROC Curve ---")
-fpr, tpr, _ = roc_curve(y_test_final, y_pred_proba_test)
-
-plt.figure(figsize=(6, 5))
-plt.plot(fpr, tpr, color='green', lw=2, label=f'Random Forest (AUC = {final_auc:.3f})')
-plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random Guess')
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.title('ROC Curve (Test Set)', fontsize=14, fontweight='bold')
-plt.xlabel('False Positive Rate', fontsize=12)
-plt.ylabel('True Positive Rate', fontsize=12)
-plt.legend(loc="lower right")
-plt.grid(alpha=0.3)
-plt.tight_layout()
-plt.savefig('rf_roc_curve.png', dpi=150)
-print("✓ Saved: rf_roc_curve.png")
-
-# ============================================================================
-# STEP 9: FEATURE IMPORTANCE WITH VARIABILITY (BONUS)
+# STEP 7: FEATURE IMPORTANCE WITH VARIABILITY (RANDOM FOREST SPECIFIC)
 # ============================================================================
 # Random Forest unique feature: we can see how consistent importance is across trees
 # If a feature has high variability, it means different trees disagree on its importance
@@ -226,19 +164,20 @@ top_10_indices = feat_imp.head(10).index
 top_10_values = feat_imp.head(10).values
 top_10_std = importances_std[feat_imp.head(10).index.map(lambda x: feature_names.index(x))]
 
-# Plot with error bars showing variability
+# Plot with error bars showing variability across trees
+# This is unique to Random Forest - shows consistency of feature importance
 plt.figure(figsize=(10, 6))
 plt.barh(range(10), top_10_values, xerr=top_10_std, color='#55a868', alpha=0.8)
 plt.yticks(range(10), top_10_indices)
 plt.xlabel('Importance (with standard deviation across trees)')
-plt.title('Top 10 Feature Importances with Variability (Random Forest)', fontsize=14, fontweight='bold')
+plt.title('Top 10 Feature Importances with Variability (Random Forest)')
 plt.gca().invert_yaxis()
 plt.tight_layout()
-plt.savefig('rf_feature_importance_with_std.png', dpi=150)
-print("✓ Saved: rf_feature_importance_with_std.png")
+plt.savefig('rf_feature_importance_with_std.png')
+print("Saved rf_feature_importance_with_std.png")
 
 # ============================================================================
-# STEP 10: SUBGROUP ANALYSIS
+# STEP 8: SUBGROUP ANALYSIS
 # ============================================================================
 # Different customer segments may care about different things
 # For example: Business class passengers might prioritize wifi, while
@@ -306,7 +245,7 @@ def get_importance_for_subset(filter_col, filter_value):
 
 
 # ============================================================================
-# STEP 10A: COMPARE BY TRAVEL CLASS
+# STEP 8A: COMPARE BY TRAVEL CLASS
 # ============================================================================
 # Do Business, Economy, and Economy Plus passengers care about different things?
 print("\n[1/2] Analyzing by Travel Class...")
@@ -319,19 +258,19 @@ df_class_comp = pd.DataFrame({'Business': imp_bus, 'Economy': imp_eco, 'Eco Plus
 # Fill missing values with 0 (in case a subgroup has no data)
 df_class_comp = df_class_comp.fillna(0).sort_values(by='Business', ascending=False).head(8)
 
-# Create comparison plot
+# Create comparison plot - consistent styling with decision tree
 df_class_comp.plot(kind='bar', figsize=(14, 6), width=0.8, color=['#4c72b0', '#dd8452', '#55a868'])
-plt.title('Feature Importance by Travel Class (Random Forest)', fontsize=14, fontweight='bold')
-plt.ylabel('Relative Importance', fontsize=12)
-plt.xlabel('Feature', fontsize=12)
+plt.title('Feature Importance by Travel Class (Random Forest)')
+plt.ylabel('Relative Importance')
+plt.xlabel('Feature')
 plt.xticks(rotation=45, ha='right')
-plt.legend(title='Travel Class', fontsize=10)
+plt.legend(title='Travel Class')
 plt.tight_layout()
-plt.savefig('rf_subgroup_class_comparison.png', dpi=150)
-print("✓ Saved: rf_subgroup_class_comparison.png")
+plt.savefig('rf_subgroup_class_comparison.png')
+print("Saved rf_subgroup_class_comparison.png")
 
 # ============================================================================
-# STEP 10B: COMPARE BY TRAVEL TYPE
+# STEP 8B: COMPARE BY TRAVEL TYPE
 # ============================================================================
 # Do business travelers and personal travelers have different priorities?
 print("\n[2/2] Analyzing by Travel Type...")
@@ -342,35 +281,138 @@ imp_personal = get_importance_for_subset('Type of Travel', 'Personal Travel')
 df_type_comp = pd.DataFrame({'Business Travel': imp_biz_travel, 'Personal Travel': imp_personal})
 df_type_comp = df_type_comp.fillna(0).sort_values(by='Business Travel', ascending=False).head(8)
 
-# Create comparison plot
+# Create comparison plot - consistent styling with decision tree
 df_type_comp.plot(kind='bar', figsize=(12, 6), width=0.8, color=['#8172b3', '#c44e52'])
-plt.title('Feature Importance by Type of Travel (Random Forest)', fontsize=14, fontweight='bold')
-plt.ylabel('Relative Importance', fontsize=12)
-plt.xlabel('Feature', fontsize=12)
+plt.title('Feature Importance by Type of Travel (Random Forest)')
+plt.ylabel('Relative Importance')
+plt.xlabel('Feature')
 plt.xticks(rotation=45, ha='right')
-plt.legend(title='Travel Type', fontsize=10)
+plt.legend(title='Travel Type')
 plt.tight_layout()
-plt.savefig('rf_subgroup_type_comparison.png', dpi=150)
-print("✓ Saved: rf_subgroup_type_comparison.png")
+plt.savefig('rf_subgroup_type_comparison.png')
+print("Saved rf_subgroup_type_comparison.png")
+
 
 # ============================================================================
-# SUMMARY
+# STEP 9: MULTI-MODEL COMPARISON (INSPIRED BY DECISION TREE ANALYSIS)
 # ============================================================================
+# Following the approach from the decision tree model, we'll compare:
+# 1. Full model (all features)
+# 2. Simple model (top 7 features)
+# 3. Ultra-simple model (top 5 features)
+# This helps understand if we can achieve similar performance with fewer features
+
+# Import additional preprocessing components needed for feature subset models
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import cross_val_score
+
 print("\n" + "="*60)
-print("✓ RANDOM FOREST MODEL TRAINING COMPLETE!")
+print("MULTI-MODEL COMPARISON")
 print("="*60)
-print(f"\nPerformance Summary:")
-print(f"  Cross-Validation (5-fold):")
-print(f"    - Accuracy: {cv_results['test_accuracy'].mean():.4f} (+/- {cv_results['test_accuracy'].std():.4f})")
-print(f"    - AUC: {cv_results['test_roc_auc'].mean():.4f} (+/- {cv_results['test_roc_auc'].std():.4f})")
-print(f"\n  Test Set (Final Evaluation):")
-print(f"    - Accuracy: {final_accuracy:.4f}")
-print(f"    - AUC: {final_auc:.4f}")
-print(f"\nGenerated Outputs:")
+
+# MODEL 2 (Top 7 Features)
+# Based on feature importance analysis, build a simpler Random Forest model
+# Using same features as decision tree for consistency
+features_top7 = [
+    'Online boarding', 'Inflight wifi service', 'Type of Travel', 'Class',
+    'Inflight entertainment', 'Customer Type', 'Leg room service'
+]
+
+print("\n[Model 2] Training Random Forest with Top 7 Features...")
+# Create subset of training data with only the top 7 features
+X_train_7 = X_train_full[features_top7].copy()
+
+# Define a specialized pipeline for these 7 features
+# Can't use the main preprocessor because it expects all original features
+prep_7 = ColumnTransformer(transformers=[
+    # Numerical features: impute missing values, then scale
+    ('num', Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),
+                            ('scaler', StandardScaler())]),
+     ['Online boarding', 'Inflight wifi service', 'Inflight entertainment', 'Leg room service']),
+    # Ordinal feature: encode Class as ordered categories
+    ('ord', Pipeline(steps=[('encoder', OrdinalEncoder(categories=[['Eco', 'Eco Plus', 'Business']]))]),
+     ['Class']),
+    # Categorical features: one-hot encode with drop_first to avoid multicollinearity
+    ('cat', Pipeline(steps=[('encoder', OneHotEncoder(drop='first'))]),
+     ['Type of Travel', 'Customer Type'])
+])
+
+# Create Random Forest pipeline for top 7 features
+# Use same hyperparameters as full model for fair comparison
+rf_7 = Pipeline(steps=[('preprocessor', prep_7),
+                       ('classifier', RandomForestClassifier(
+                           n_estimators=100, max_depth=15, min_samples_split=20,
+                           min_samples_leaf=10, random_state=42, n_jobs=-1))])
+
+# Evaluate using same cross-validation approach
+print("Running 5-Fold CV on Top-7-Features Random Forest...")
+scores_acc_7 = cross_val_score(rf_7, X_train_7, y_train_full, cv=cv, scoring='accuracy')
+scores_auc_7 = cross_val_score(rf_7, X_train_7, y_train_full, cv=cv, scoring='roc_auc')
+
+print(f"Top-7-Features RF Accuracy: {scores_acc_7.mean():.4f}")
+print(f"Top-7-Features RF AUC:      {scores_auc_7.mean():.4f}")
+print("-" * 30)
+
+# MODEL 3 (Top 5 Features)
+# Even simpler model to test the limits of feature reduction
+features_top5 = [
+    'Online boarding', 'Inflight wifi service', 'Type of Travel', 'Class', 'Inflight entertainment'
+]
+
+print("\n[Model 3] Training Random Forest with Top 5 Features...")
+X_train_5 = X_train_full[features_top5].copy()
+
+# Define pipeline for top 5 features
+prep_5 = ColumnTransformer(transformers=[
+    # Numerical features: same approach as above
+    ('num', Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),
+                            ('scaler', StandardScaler())]),
+     ['Online boarding', 'Inflight wifi service', 'Inflight entertainment']),
+    # Ordinal feature: Class encoding
+    ('ord', Pipeline(steps=[('encoder', OrdinalEncoder(categories=[['Eco', 'Eco Plus', 'Business']]))]),
+     ['Class']),
+    # Categorical feature: only Type of Travel in this subset
+    ('cat', Pipeline(steps=[('encoder', OneHotEncoder(drop='first'))]),
+     ['Type of Travel'])
+])
+
+# Create Random Forest pipeline for top 5 features
+rf_5 = Pipeline(steps=[('preprocessor', prep_5),
+                       ('classifier', RandomForestClassifier(
+                           n_estimators=100, max_depth=15, min_samples_split=20,
+                           min_samples_leaf=10, random_state=42, n_jobs=-1))])
+
+print("Running 5-Fold CV on Top-5-Features Random Forest...")
+scores_acc_5 = cross_val_score(rf_5, X_train_5, y_train_full, cv=cv, scoring='accuracy')
+scores_auc_5 = cross_val_score(rf_5, X_train_5, y_train_full, cv=cv, scoring='roc_auc')
+
+print(f"Top-5-Features RF Accuracy: {scores_acc_5.mean():.4f}")
+print(f"Top-5-Features RF AUC:      {scores_auc_5.mean():.4f}")
+print("-" * 30)
+
+print("\n" + "="*60)
+print("RANDOM FOREST MODEL ANALYSIS COMPLETE!")
+print("="*60)
+print(f"\nModel Performance Comparison:")
+print(f"  Full Model (All Features):")
+print(f"    - Accuracy: {cv_results['test_accuracy'].mean():.4f}")
+print(f"    - AUC:      {cv_results['test_roc_auc'].mean():.4f}")
+print(f"\n  Top-7-Features Model:")
+print(f"    - Accuracy: {scores_acc_7.mean():.4f}")
+print(f"    - AUC:      {scores_auc_7.mean():.4f}")
+print(f"\n  Top-5-Features Model:")
+print(f"    - Accuracy: {scores_acc_5.mean():.4f}")
+print(f"    - AUC:      {scores_auc_5.mean():.4f}")
+print(f"\nKey Insights:")
+print(f"  - Random Forest provides ensemble learning with {rf_model.n_estimators} trees")
+print(f"  - Feature importance shows consistency across trees (with std deviation)")
+print(f"  - Subgroup analysis reveals different priorities by customer segment")
+print(f"  - Model comparison shows performance vs complexity trade-offs")
+print(f"\nGenerated Visualizations:")
 print(f"  ✓ rf_feature_importance.png")
-print(f"  ✓ rf_confusion_matrix.png")
-print(f"  ✓ rf_roc_curve.png")
-print(f"  ✓ rf_feature_importance_with_std.png")
+print(f"  ✓ rf_feature_importance_with_std.png (Random Forest specific)")
 print(f"  ✓ rf_subgroup_class_comparison.png")
 print(f"  ✓ rf_subgroup_type_comparison.png")
 print("\n" + "="*60)
