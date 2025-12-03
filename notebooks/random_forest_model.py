@@ -24,13 +24,14 @@ from preprocessing import load_data, get_preprocessor
 # ============================================================================
 # STEP 1: LOAD DATA
 # ============================================================================
-# Load the training dataset from the data/raw directory
-# Following same approach as decision tree model - focus on cross-validation
+# Load the training and test datasets from the data/raw directory
 # X contains all features (service ratings, delays, demographics, etc.)
 # y contains the target variable (satisfied = 1, dissatisfied = 0)
-print("Loading training data...")
+print("Loading data...")
 X_train_full, y_train_full = load_data('train.csv', data_dir='data/raw')
+X_test_final, y_test_final = load_data('test.csv', data_dir='data/raw')
 print(f"Training samples: {len(X_train_full):,}")
+print(f"Test samples: {len(X_test_final):,}")
 
 # ============================================================================
 # STEP 2: CREATE PREPROCESSING PIPELINE
@@ -99,15 +100,81 @@ print(f"Mean AUC: {cv_results['test_roc_auc'].mean():.4f}")
 print("-" * 30)
 
 # ============================================================================
-# STEP 5: TRAIN FINAL MODEL FOR FEATURE ANALYSIS
+# STEP 5: TRAIN FINAL MODEL AND EVALUATE ON TEST SET
 # ============================================================================
-# Train the model on full training set to analyze feature importance
-# We focus on cross-validation results for performance evaluation
-print("\nTraining full model for feature importance analysis...")
+# Train the model on full training set, then evaluate on held-out test set
+# This gives us the true performance on unseen data
+print("\nTraining final model on full training set...")
 clf.fit(X_train_full, y_train_full)
 
+# Make predictions on test set
+print("Evaluating on test set...")
+y_pred_test = clf.predict(X_test_final)
+y_pred_proba_test = clf.predict_proba(X_test_final)[:, 1]
+
+# Calculate test set performance metrics
+test_accuracy = accuracy_score(y_test_final, y_pred_test)
+test_auc = roc_auc_score(y_test_final, y_pred_proba_test)
+
+print(f"\n{'='*60}")
+print(f"TEST SET EVALUATION RESULTS")
+print(f"{'='*60}")
+print(f"Test Set Accuracy: {test_accuracy:.4f}")
+print(f"Test Set AUC:      {test_auc:.4f}")
+print(f"{'='*60}")
+
 # ============================================================================
-# STEP 6: GLOBAL FEATURE IMPORTANCE ANALYSIS
+# STEP 6: CONFUSION MATRIX (TEST SET)
+# ============================================================================
+# Shows how many predictions were correct vs incorrect on test data
+print("\n--- Generating Confusion Matrix (Test Set) ---")
+cm_test = confusion_matrix(y_test_final, y_pred_test)
+
+# Display as a formatted table
+cm_df = pd.DataFrame(cm_test,
+                     index=['Actual: Neutral/Dissatisfied', 'Actual: Satisfied'],
+                     columns=['Pred: Neutral/Dissatisfied', 'Pred: Satisfied'])
+print(cm_df)
+print("-" * 60)
+
+# Create visual heatmap of confusion matrix
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm_test, annot=True, fmt='d', cmap='Greens', cbar=True,
+            xticklabels=['Neutral/Dissatisfied', 'Satisfied'],
+            yticklabels=['Neutral/Dissatisfied', 'Satisfied'])
+plt.title('Confusion Matrix - Test Set (Random Forest)', fontsize=14, fontweight='bold')
+plt.xlabel('Predicted', fontsize=12)
+plt.ylabel('Actual', fontsize=12)
+plt.tight_layout()
+plt.savefig('rf_confusion_matrix.png', dpi=150)
+print("✓ Saved: rf_confusion_matrix.png (Test Set)")
+
+# ============================================================================
+# STEP 7: ROC CURVE (TEST SET)
+# ============================================================================
+# ROC curve shows the trade-off between true positive rate and false positive rate
+# AUC (Area Under Curve) summarizes performance: 1.0 = perfect, 0.5 = random guess
+print("\n--- Generating ROC Curve (Test Set) ---")
+fpr_test, tpr_test, _ = roc_curve(y_test_final, y_pred_proba_test)
+
+plt.figure(figsize=(8, 6))
+plt.plot(fpr_test, tpr_test, color='#55a868', lw=2.5, 
+         label=f'Random Forest (AUC = {test_auc:.3f})')
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', 
+         label='Random Guess (AUC = 0.500)')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.title('ROC Curve - Test Set (Random Forest)', fontsize=14, fontweight='bold')
+plt.xlabel('False Positive Rate', fontsize=12)
+plt.ylabel('True Positive Rate', fontsize=12)
+plt.legend(loc="lower right", fontsize=11)
+plt.grid(alpha=0.3)
+plt.tight_layout()
+plt.savefig('rf_roc_curve.png', dpi=150)
+print("✓ Saved: rf_roc_curve.png (Test Set)")
+
+# ============================================================================
+# STEP 8: GLOBAL FEATURE IMPORTANCE ANALYSIS
 # ============================================================================
 # Identify which features (service ratings, delays, etc.) are most important
 # for predicting customer satisfaction
@@ -145,7 +212,7 @@ print("Saved rf_feature_importance.png")
 
 
 # ============================================================================
-# STEP 7: FEATURE IMPORTANCE WITH VARIABILITY (RANDOM FOREST SPECIFIC)
+# STEP 9: FEATURE IMPORTANCE WITH VARIABILITY (RANDOM FOREST SPECIFIC)
 # ============================================================================
 # Random Forest unique feature: we can see how consistent importance is across trees
 # If a feature has high variability, it means different trees disagree on its importance
@@ -177,7 +244,7 @@ plt.savefig('rf_feature_importance_with_std.png')
 print("Saved rf_feature_importance_with_std.png")
 
 # ============================================================================
-# STEP 8: SUBGROUP ANALYSIS
+# STEP 10: SUBGROUP ANALYSIS
 # ============================================================================
 # Different customer segments may care about different things
 # For example: Business class passengers might prioritize wifi, while
@@ -294,7 +361,7 @@ print("Saved rf_subgroup_type_comparison.png")
 
 
 # ============================================================================
-# STEP 9: MULTI-MODEL COMPARISON (INSPIRED BY DECISION TREE ANALYSIS)
+# STEP 11: MULTI-MODEL COMPARISON (INSPIRED BY DECISION TREE ANALYSIS)
 # ============================================================================
 # Following the approach from the decision tree model, we'll compare:
 # 1. Full model (all features)
@@ -395,22 +462,29 @@ print("-" * 30)
 print("\n" + "="*60)
 print("RANDOM FOREST MODEL ANALYSIS COMPLETE!")
 print("="*60)
-print(f"\nModel Performance Comparison:")
-print(f"  Full Model (All Features):")
-print(f"    - Accuracy: {cv_results['test_accuracy'].mean():.4f}")
-print(f"    - AUC:      {cv_results['test_roc_auc'].mean():.4f}")
-print(f"\n  Top-7-Features Model:")
-print(f"    - Accuracy: {scores_acc_7.mean():.4f}")
-print(f"    - AUC:      {scores_auc_7.mean():.4f}")
-print(f"\n  Top-5-Features Model:")
-print(f"    - Accuracy: {scores_acc_5.mean():.4f}")
-print(f"    - AUC:      {scores_auc_5.mean():.4f}")
+print(f"\nPerformance Summary:")
+print(f"  Cross-Validation (5-fold) - Training Data:")
+print(f"    - Accuracy: {cv_results['test_accuracy'].mean():.4f} (+/- {cv_results['test_accuracy'].std():.4f})")
+print(f"    - AUC:      {cv_results['test_roc_auc'].mean():.4f} (+/- {cv_results['test_roc_auc'].std():.4f})")
+print(f"\n  Test Set (Final Evaluation) - Unseen Data:")
+print(f"    - Accuracy: {test_accuracy:.4f}")
+print(f"    - AUC:      {test_auc:.4f}")
+print(f"\n  Model Comparison (Cross-Validation):")
+print(f"    - Full Model (All Features):")
+print(f"      Accuracy: {cv_results['test_accuracy'].mean():.4f}, AUC: {cv_results['test_roc_auc'].mean():.4f}")
+print(f"    - Top-7-Features Model:")
+print(f"      Accuracy: {scores_acc_7.mean():.4f}, AUC: {scores_auc_7.mean():.4f}")
+print(f"    - Top-5-Features Model:")
+print(f"      Accuracy: {scores_acc_5.mean():.4f}, AUC: {scores_auc_5.mean():.4f}")
 print(f"\nKey Insights:")
 print(f"  - Random Forest provides ensemble learning with {rf_model.n_estimators} trees")
+print(f"  - Test set performance confirms model generalizes well to unseen data")
 print(f"  - Feature importance shows consistency across trees (with std deviation)")
 print(f"  - Subgroup analysis reveals different priorities by customer segment")
 print(f"  - Model comparison shows performance vs complexity trade-offs")
-print(f"\nGenerated Visualizations:")
+print(f"\nGenerated Visualizations (Test Set Results):")
+print(f"  ✓ rf_confusion_matrix.png (Test Set)")
+print(f"  ✓ rf_roc_curve.png (Test Set)")
 print(f"  ✓ rf_feature_importance.png")
 print(f"  ✓ rf_feature_importance_with_std.png (Random Forest specific)")
 print(f"  ✓ rf_subgroup_class_comparison.png")
