@@ -75,49 +75,180 @@ clf = Pipeline(steps=[('preprocessor', preprocessor),
                       ('classifier', rf_model)])
 
 # ============================================================================
-# STEP 4: CROSS-VALIDATION
+# STEP 4: MODEL SELECTION - COMPARE MODELS ON TRAINING DATA
 # ============================================================================
-# Use 5-fold cross-validation to estimate model performance
-# Stratified k-fold maintains the same ratio of satisfied/dissatisfied in each fold
-# This gives us a more reliable estimate of how the model will perform on new data
-print("\nRunning 5-fold cross-validation...")
+# Compare different model configurations using cross-validation on training data
+# This is the proper ML workflow: select best model on training, then test on held-out data
+print("\n" + "="*60)
+print("MODEL SELECTION - Comparing Models on Training Data")
+print("="*60)
+
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-# Train and evaluate the model 5 times (once per fold)
-# We compute both accuracy and AUC in a single pass for efficiency
-cv_results = cross_validate(
+# Import additional preprocessing components needed for feature subset models
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import cross_val_score
+
+# MODEL 1: Full Model (All Features)
+print("\n[Model 1] Full Model (All Features)...")
+cv_results_full = cross_validate(
     clf, X_train_full, y_train_full, 
     cv=cv, 
     scoring={'accuracy': 'accuracy', 'roc_auc': 'roc_auc'}
 )
+cv_acc_full = cv_results_full['test_accuracy'].mean()
+cv_auc_full = cv_results_full['test_roc_auc'].mean()
+print(f"  CV Accuracy: {cv_acc_full:.4f} (+/- {cv_results_full['test_accuracy'].std():.4f})")
+print(f"  CV AUC:      {cv_auc_full:.4f} (+/- {cv_results_full['test_roc_auc'].std():.4f})")
 
-# Display cross-validation results
-# Focus on cross-validation performance instead of test set evaluation
-# This approach matches the decision tree model and follows best practices
-print(f"\n--- FULL MODEL 5-Fold Cross-Validation Results ---")
-print(f"Mean Accuracy: {cv_results['test_accuracy'].mean():.4f}")
-print(f"Mean AUC: {cv_results['test_roc_auc'].mean():.4f}")
-print("-" * 30)
+# MODEL 2: Top 7 Features
+features_top7 = [
+    'Online boarding', 'Inflight wifi service', 'Type of Travel', 'Class',
+    'Inflight entertainment', 'Customer Type', 'Leg room service'
+]
+print("\n[Model 2] Top 7 Features Model...")
+X_train_7 = X_train_full[features_top7].copy()
+prep_7 = ColumnTransformer(transformers=[
+    ('num', Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),
+                            ('scaler', StandardScaler())]),
+     ['Online boarding', 'Inflight wifi service', 'Inflight entertainment', 'Leg room service']),
+    ('ord', Pipeline(steps=[('encoder', OrdinalEncoder(categories=[['Eco', 'Eco Plus', 'Business']]))]),
+     ['Class']),
+    ('cat', Pipeline(steps=[('encoder', OneHotEncoder(drop='first'))]),
+     ['Type of Travel', 'Customer Type'])
+])
+rf_7 = Pipeline(steps=[('preprocessor', prep_7),
+                       ('classifier', RandomForestClassifier(
+                           n_estimators=100, max_depth=15, min_samples_split=20,
+                           min_samples_leaf=10, random_state=42, n_jobs=-1))])
+cv_results_7 = cross_validate(
+    rf_7, X_train_7, y_train_full, 
+    cv=cv, 
+    scoring={'accuracy': 'accuracy', 'roc_auc': 'roc_auc'}
+)
+cv_acc_7 = cv_results_7['test_accuracy'].mean()
+cv_auc_7 = cv_results_7['test_roc_auc'].mean()
+print(f"  CV Accuracy: {cv_acc_7:.4f} (+/- {cv_results_7['test_accuracy'].std():.4f})")
+print(f"  CV AUC:      {cv_auc_7:.4f} (+/- {cv_results_7['test_roc_auc'].std():.4f})")
+
+# MODEL 3: Top 5 Features
+features_top5 = [
+    'Online boarding', 'Inflight wifi service', 'Type of Travel', 'Class', 'Inflight entertainment'
+]
+print("\n[Model 3] Top 5 Features Model...")
+X_train_5 = X_train_full[features_top5].copy()
+prep_5 = ColumnTransformer(transformers=[
+    ('num', Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),
+                            ('scaler', StandardScaler())]),
+     ['Online boarding', 'Inflight wifi service', 'Inflight entertainment']),
+    ('ord', Pipeline(steps=[('encoder', OrdinalEncoder(categories=[['Eco', 'Eco Plus', 'Business']]))]),
+     ['Class']),
+    ('cat', Pipeline(steps=[('encoder', OneHotEncoder(drop='first'))]),
+     ['Type of Travel'])
+])
+rf_5 = Pipeline(steps=[('preprocessor', prep_5),
+                       ('classifier', RandomForestClassifier(
+                           n_estimators=100, max_depth=15, min_samples_split=20,
+                           min_samples_leaf=10, random_state=42, n_jobs=-1))])
+cv_results_5 = cross_validate(
+    rf_5, X_train_5, y_train_full, 
+    cv=cv, 
+    scoring={'accuracy': 'accuracy', 'roc_auc': 'roc_auc'}
+)
+cv_acc_5 = cv_results_5['test_accuracy'].mean()
+cv_auc_5 = cv_results_5['test_roc_auc'].mean()
+print(f"  CV Accuracy: {cv_acc_5:.4f} (+/- {cv_results_5['test_accuracy'].std():.4f})")
+print(f"  CV AUC:      {cv_auc_5:.4f} (+/- {cv_results_5['test_roc_auc'].std():.4f})")
 
 # ============================================================================
-# STEP 5: TRAIN FINAL MODEL AND EVALUATE ON TEST SET
+# STEP 5: SELECT BEST MODEL
 # ============================================================================
-# Train the model on full training set, then evaluate on held-out test set
-# This gives us the true performance on unseen data
-print("\nTraining final model on full training set...")
-clf.fit(X_train_full, y_train_full)
+# Compare models and select the best one based on cross-validation AUC
+# (AUC is preferred as it's more robust to class imbalance)
+print("\n" + "="*60)
+print("SELECTING BEST MODEL")
+print("="*60)
+
+models = {
+    'Full Model (All Features)': {
+        'pipeline': clf,
+        'X_train': X_train_full,
+        'features': 'all',
+        'cv_acc': cv_acc_full,
+        'cv_auc': cv_auc_full,
+        'cv_results': cv_results_full
+    },
+    'Top 7 Features': {
+        'pipeline': rf_7,
+        'X_train': X_train_7,
+        'features': features_top7,
+        'cv_acc': cv_acc_7,
+        'cv_auc': cv_auc_7,
+        'cv_results': cv_results_7
+    },
+    'Top 5 Features': {
+        'pipeline': rf_5,
+        'X_train': X_train_5,
+        'features': features_top5,
+        'cv_acc': cv_acc_5,
+        'cv_auc': cv_auc_5,
+        'cv_results': cv_results_5
+    }
+}
+
+# Select best model based on AUC (primary metric)
+best_model_name = max(models.keys(), key=lambda k: models[k]['cv_auc'])
+best_model = models[best_model_name]
+
+print(f"\nModel Comparison (5-Fold CV on Training Data):")
+print(f"  {'Model':<25} {'CV Accuracy':<15} {'CV AUC':<15}")
+print(f"  {'-'*55}")
+for name, model_info in models.items():
+    marker = " <-- BEST" if name == best_model_name else ""
+    print(f"  {name:<25} {model_info['cv_acc']:.4f}        {model_info['cv_auc']:.4f}{marker}")
+
+print(f"\n✓ Selected Best Model: {best_model_name}")
+print(f"  CV Accuracy: {best_model['cv_acc']:.4f}")
+print(f"  CV AUC:      {best_model['cv_auc']:.4f}")
+
+# ============================================================================
+# STEP 6: TRAIN BEST MODEL ON FULL TRAINING SET
+# ============================================================================
+# Now train the selected best model on the full training set
+print("\n" + "="*60)
+print("TRAINING BEST MODEL ON FULL TRAINING SET")
+print("="*60)
+print(f"Training {best_model_name} on all {len(X_train_full):,} training samples...")
+best_model['pipeline'].fit(best_model['X_train'], y_train_full)
+print("✓ Training complete!")
+
+# ============================================================================
+# STEP 7: EVALUATE BEST MODEL ON TEST SET
+# ============================================================================
+# Evaluate the best model on the held-out test set to get final performance
+print("\n" + "="*60)
+print("EVALUATING BEST MODEL ON TEST SET")
+print("="*60)
+
+# Prepare test data with same features as best model
+if best_model['features'] == 'all':
+    X_test_prepared = X_test_final
+else:
+    X_test_prepared = X_test_final[best_model['features']].copy()
 
 # Make predictions on test set
-print("Evaluating on test set...")
-y_pred_test = clf.predict(X_test_final)
-y_pred_proba_test = clf.predict_proba(X_test_final)[:, 1]
+print("Making predictions on test set...")
+y_pred_test = best_model['pipeline'].predict(X_test_prepared)
+y_pred_proba_test = best_model['pipeline'].predict_proba(X_test_prepared)[:, 1]
 
 # Calculate test set performance metrics
 test_accuracy = accuracy_score(y_test_final, y_pred_test)
 test_auc = roc_auc_score(y_test_final, y_pred_proba_test)
 
 print(f"\n{'='*60}")
-print(f"TEST SET EVALUATION RESULTS")
+print(f"FINAL TEST SET RESULTS - {best_model_name}")
 print(f"{'='*60}")
 print(f"Test Set Accuracy: {test_accuracy:.4f}")
 print(f"Test Set AUC:      {test_auc:.4f}")
@@ -174,28 +305,41 @@ plt.savefig('rf_roc_curve.png', dpi=150)
 print("✓ Saved: rf_roc_curve.png (Test Set)")
 
 # ============================================================================
-# STEP 8: GLOBAL FEATURE IMPORTANCE ANALYSIS
+# STEP 8: GLOBAL FEATURE IMPORTANCE ANALYSIS (BEST MODEL)
 # ============================================================================
 # Identify which features (service ratings, delays, etc.) are most important
-# for predicting customer satisfaction
-print("\n--- Analyzing Feature Importance ---")
+# for predicting customer satisfaction in the best model
+print("\n--- Analyzing Feature Importance (Best Model) ---")
 
-# Reconstruct feature names after preprocessing
-# Numerical features stay the same (Age, Flight Distance, delays, service ratings)
-numerical_features = X_train_full.select_dtypes(include=['number']).columns.tolist()
-# Ordinal feature (Class) gets encoded as a single number
-ordinal_features = ['Class']
-# Nominal features get one-hot encoded (Gender_Male, Type of Travel_Business, etc.)
-nominal_features = ['Gender', 'Customer Type', 'Type of Travel']
-cat_names = clf.named_steps['preprocessor'].named_transformers_['cat']['encoder'].get_feature_names_out(nominal_features).tolist()
-
-# Combine all feature names in the same order as the model sees them
-feature_names = numerical_features + ordinal_features + cat_names
+# Reconstruct feature names after preprocessing based on best model
+if best_model['features'] == 'all':
+    # Full model - use all features
+    numerical_features = X_train_full.select_dtypes(include=['number']).columns.tolist()
+    ordinal_features = ['Class']
+    nominal_features = ['Gender', 'Customer Type', 'Type of Travel']
+    cat_names = best_model['pipeline'].named_steps['preprocessor'].named_transformers_['cat']['encoder'].get_feature_names_out(nominal_features).tolist()
+    feature_names = numerical_features + ordinal_features + cat_names
+else:
+    # Subset model - reconstruct from the preprocessor
+    if len(best_model['features']) == 7:
+        # Top 7 features model
+        num_feat = ['Online boarding', 'Inflight wifi service', 'Inflight entertainment', 'Leg room service']
+        ord_feat = ['Class']
+        cat_feat = ['Type of Travel', 'Customer Type']
+        cat_names = best_model['pipeline'].named_steps['preprocessor'].named_transformers_['cat']['encoder'].get_feature_names_out(cat_feat).tolist()
+        feature_names = num_feat + ord_feat + cat_names
+    else:
+        # Top 5 features model
+        num_feat = ['Online boarding', 'Inflight wifi service', 'Inflight entertainment']
+        ord_feat = ['Class']
+        cat_feat = ['Type of Travel']
+        cat_names = best_model['pipeline'].named_steps['preprocessor'].named_transformers_['cat']['encoder'].get_feature_names_out(cat_feat).tolist()
+        feature_names = num_feat + ord_feat + cat_names
 
 # Extract feature importances from the trained Random Forest
 # Random Forest averages importance across all 100 trees
 # Higher value = more important for predicting satisfaction
-importances = clf.named_steps['classifier'].feature_importances_
+importances = best_model['pipeline'].named_steps['classifier'].feature_importances_
 feat_imp = pd.Series(importances, index=feature_names).sort_values(ascending=False)
 
 # Plot the top 10 most important features
@@ -220,7 +364,7 @@ print("\n--- Analyzing Feature Importance Variability ---")
 
 # Extract importance from each individual tree in the forest
 tree_importances = []
-for tree in clf.named_steps['classifier'].estimators_:
+for tree in best_model['pipeline'].named_steps['classifier'].estimators_:
     tree_importances.append(tree.feature_importances_)
 
 # Calculate standard deviation of importance across all 100 trees
@@ -360,133 +504,35 @@ plt.savefig('rf_subgroup_type_comparison.png')
 print("Saved rf_subgroup_type_comparison.png")
 
 
-# ============================================================================
-# STEP 11: MULTI-MODEL COMPARISON (INSPIRED BY DECISION TREE ANALYSIS)
-# ============================================================================
-# Following the approach from the decision tree model, we'll compare:
-# 1. Full model (all features)
-# 2. Simple model (top 7 features)
-# 3. Ultra-simple model (top 5 features)
-# This helps understand if we can achieve similar performance with fewer features
-
-# Import additional preprocessing components needed for feature subset models
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import StandardScaler, OrdinalEncoder, OneHotEncoder
-from sklearn.impute import SimpleImputer
-from sklearn.model_selection import cross_val_score
-
-print("\n" + "="*60)
-print("MULTI-MODEL COMPARISON")
-print("="*60)
-
-# MODEL 2 (Top 7 Features)
-# Based on feature importance analysis, build a simpler Random Forest model
-# Using same features as decision tree for consistency
-features_top7 = [
-    'Online boarding', 'Inflight wifi service', 'Type of Travel', 'Class',
-    'Inflight entertainment', 'Customer Type', 'Leg room service'
-]
-
-print("\n[Model 2] Training Random Forest with Top 7 Features...")
-# Create subset of training data with only the top 7 features
-X_train_7 = X_train_full[features_top7].copy()
-
-# Define a specialized pipeline for these 7 features
-# Can't use the main preprocessor because it expects all original features
-prep_7 = ColumnTransformer(transformers=[
-    # Numerical features: impute missing values, then scale
-    ('num', Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),
-                            ('scaler', StandardScaler())]),
-     ['Online boarding', 'Inflight wifi service', 'Inflight entertainment', 'Leg room service']),
-    # Ordinal feature: encode Class as ordered categories
-    ('ord', Pipeline(steps=[('encoder', OrdinalEncoder(categories=[['Eco', 'Eco Plus', 'Business']]))]),
-     ['Class']),
-    # Categorical features: one-hot encode with drop_first to avoid multicollinearity
-    ('cat', Pipeline(steps=[('encoder', OneHotEncoder(drop='first'))]),
-     ['Type of Travel', 'Customer Type'])
-])
-
-# Create Random Forest pipeline for top 7 features
-# Use same hyperparameters as full model for fair comparison
-rf_7 = Pipeline(steps=[('preprocessor', prep_7),
-                       ('classifier', RandomForestClassifier(
-                           n_estimators=100, max_depth=15, min_samples_split=20,
-                           min_samples_leaf=10, random_state=42, n_jobs=-1))])
-
-# Evaluate using same cross-validation approach
-print("Running 5-Fold CV on Top-7-Features Random Forest...")
-scores_acc_7 = cross_val_score(rf_7, X_train_7, y_train_full, cv=cv, scoring='accuracy')
-scores_auc_7 = cross_val_score(rf_7, X_train_7, y_train_full, cv=cv, scoring='roc_auc')
-
-print(f"Top-7-Features RF Accuracy: {scores_acc_7.mean():.4f}")
-print(f"Top-7-Features RF AUC:      {scores_auc_7.mean():.4f}")
-print("-" * 30)
-
-# MODEL 3 (Top 5 Features)
-# Even simpler model to test the limits of feature reduction
-features_top5 = [
-    'Online boarding', 'Inflight wifi service', 'Type of Travel', 'Class', 'Inflight entertainment'
-]
-
-print("\n[Model 3] Training Random Forest with Top 5 Features...")
-X_train_5 = X_train_full[features_top5].copy()
-
-# Define pipeline for top 5 features
-prep_5 = ColumnTransformer(transformers=[
-    # Numerical features: same approach as above
-    ('num', Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),
-                            ('scaler', StandardScaler())]),
-     ['Online boarding', 'Inflight wifi service', 'Inflight entertainment']),
-    # Ordinal feature: Class encoding
-    ('ord', Pipeline(steps=[('encoder', OrdinalEncoder(categories=[['Eco', 'Eco Plus', 'Business']]))]),
-     ['Class']),
-    # Categorical feature: only Type of Travel in this subset
-    ('cat', Pipeline(steps=[('encoder', OneHotEncoder(drop='first'))]),
-     ['Type of Travel'])
-])
-
-# Create Random Forest pipeline for top 5 features
-rf_5 = Pipeline(steps=[('preprocessor', prep_5),
-                       ('classifier', RandomForestClassifier(
-                           n_estimators=100, max_depth=15, min_samples_split=20,
-                           min_samples_leaf=10, random_state=42, n_jobs=-1))])
-
-print("Running 5-Fold CV on Top-5-Features Random Forest...")
-scores_acc_5 = cross_val_score(rf_5, X_train_5, y_train_full, cv=cv, scoring='accuracy')
-scores_auc_5 = cross_val_score(rf_5, X_train_5, y_train_full, cv=cv, scoring='roc_auc')
-
-print(f"Top-5-Features RF Accuracy: {scores_acc_5.mean():.4f}")
-print(f"Top-5-Features RF AUC:      {scores_auc_5.mean():.4f}")
-print("-" * 30)
-
 print("\n" + "="*60)
 print("RANDOM FOREST MODEL ANALYSIS COMPLETE!")
 print("="*60)
+print(f"\nModel Selection Summary:")
+print(f"  Best Model Selected: {best_model_name}")
+print(f"  Selection Criteria: Highest CV AUC on training data")
 print(f"\nPerformance Summary:")
 print(f"  Cross-Validation (5-fold) - Training Data:")
-print(f"    - Accuracy: {cv_results['test_accuracy'].mean():.4f} (+/- {cv_results['test_accuracy'].std():.4f})")
-print(f"    - AUC:      {cv_results['test_roc_auc'].mean():.4f} (+/- {cv_results['test_roc_auc'].std():.4f})")
+print(f"    - Accuracy: {best_model['cv_acc']:.4f} (+/- {best_model['cv_results']['test_accuracy'].std():.4f})")
+print(f"    - AUC:      {best_model['cv_auc']:.4f} (+/- {best_model['cv_results']['test_roc_auc'].std():.4f})")
 print(f"\n  Test Set (Final Evaluation) - Unseen Data:")
 print(f"    - Accuracy: {test_accuracy:.4f}")
 print(f"    - AUC:      {test_auc:.4f}")
-print(f"\n  Model Comparison (Cross-Validation):")
-print(f"    - Full Model (All Features):")
-print(f"      Accuracy: {cv_results['test_accuracy'].mean():.4f}, AUC: {cv_results['test_roc_auc'].mean():.4f}")
-print(f"    - Top-7-Features Model:")
-print(f"      Accuracy: {scores_acc_7.mean():.4f}, AUC: {scores_auc_7.mean():.4f}")
-print(f"    - Top-5-Features Model:")
-print(f"      Accuracy: {scores_acc_5.mean():.4f}, AUC: {scores_auc_5.mean():.4f}")
+print(f"\n  Model Comparison (All models evaluated on training data via CV):")
+for name, model_info in models.items():
+    marker = " <-- SELECTED" if name == best_model_name else ""
+    print(f"    - {name}:")
+    print(f"      CV Accuracy: {model_info['cv_acc']:.4f}, CV AUC: {model_info['cv_auc']:.4f}{marker}")
 print(f"\nKey Insights:")
-print(f"  - Random Forest provides ensemble learning with {rf_model.n_estimators} trees")
+print(f"  - Best model selected based on cross-validation performance on training data")
+print(f"  - Final model trained on full training set ({len(X_train_full):,} samples)")
+print(f"  - Test set evaluation on {len(X_test_final):,} unseen samples")
+print(f"  - Random Forest provides ensemble learning with 100 trees")
 print(f"  - Test set performance confirms model generalizes well to unseen data")
-print(f"  - Feature importance shows consistency across trees (with std deviation)")
-print(f"  - Subgroup analysis reveals different priorities by customer segment")
-print(f"  - Model comparison shows performance vs complexity trade-offs")
-print(f"\nGenerated Visualizations (Test Set Results):")
+print(f"\nGenerated Visualizations (Best Model - Test Set Results):")
 print(f"  ✓ rf_confusion_matrix.png (Test Set)")
 print(f"  ✓ rf_roc_curve.png (Test Set)")
-print(f"  ✓ rf_feature_importance.png")
-print(f"  ✓ rf_feature_importance_with_std.png (Random Forest specific)")
+print(f"  ✓ rf_feature_importance.png (Best Model)")
+print(f"  ✓ rf_feature_importance_with_std.png (Best Model)")
 print(f"  ✓ rf_subgroup_class_comparison.png")
 print(f"  ✓ rf_subgroup_type_comparison.png")
 print("\n" + "="*60)
