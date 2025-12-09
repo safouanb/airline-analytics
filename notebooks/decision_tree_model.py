@@ -49,6 +49,9 @@ print(f"Mean AUC: {cv_results['test_roc_auc'].mean():.4f}")
 print("-" * 30)
 
 # Global Feature Importance
+# To access named_transformers_ for feature names, the pipeline needs to be fitted at least once
+clf.fit(X_train_full, y_train_full)
+
 # Reconstruct feature names
 numerical_features = X_train_full.select_dtypes(include=['number']).columns.tolist()
 ordinal_features = ['Class']
