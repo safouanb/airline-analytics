@@ -23,7 +23,7 @@ from preprocessing import load_data, get_preprocessor
 from sklearn.model_selection import cross_validate
 
 # Load train data
-X_train_full, y_train_full = load_data('train.csv', data_dir='data/raw')
+X_train_full, y_train_full = load_data('../data/raw/train.csv')
 
 # Get the preprocessor
 preprocessor = get_preprocessor(X_train_full)
@@ -71,7 +71,7 @@ plt.title('Top 10 Drivers of Satisfaction (Global Model)')
 plt.xlabel('Relative Importance (Gini Impurity reduction)')
 plt.gca().invert_yaxis()
 plt.tight_layout()
-plt.savefig('dt_feature_importance.png')
+plt.savefig('../figures/dt_feature_importance.png')
 print("Saved dt_feature_importance.png")
 
 # Tree Visualization & Rules (Depth 3)
@@ -95,7 +95,7 @@ plot_tree(clf_small.named_steps['classifier'],
           impurity=False)
 
 plt.title("Decision Tree Logic (Top 3 Levels)\n<--- LEFT is True (Yes)  |  RIGHT is False (No) --->", fontsize=16)
-plt.savefig('decision_tree_viz.png')
+plt.savefig('../figures/decision_tree_viz.png')
 print("Saved decision_tree_viz.png")
 
 # Print the text rules
@@ -150,7 +150,7 @@ plt.title('Feature Importance by Travel Class')
 plt.ylabel('Relative Importance')
 plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
-plt.savefig('subgroup_class_comparison.png')
+plt.savefig('../figures/dt_subgroup_class_comparison.png')
 print("Saved subgroup_class_comparison.png")
 
 # Generate Comparison 2: Travel Type
@@ -165,7 +165,7 @@ plt.title('Feature Importance by Type of Travel')
 plt.ylabel('Relative Importance')
 plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
-plt.savefig('subgroup_type_comparison.png')
+plt.savefig('../figures/dt_subgroup_type_comparison.png')
 print("Saved subgroup_type_comparison.png")
 
 

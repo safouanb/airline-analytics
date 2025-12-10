@@ -5,7 +5,7 @@ This script trains a Random Forest classifier to predict customer satisfaction.
 Random Forest is an ensemble method that combines multiple decision trees to
 improve prediction accuracy and reduce overfitting.
 
-Author: [Your Name]
+Author: Safouan
 Date: November 2025
 """
 
@@ -28,8 +28,8 @@ from preprocessing import load_data, get_preprocessor
 # X contains all features (service ratings, delays, demographics, etc.)
 # y contains the target variable (satisfied = 1, dissatisfied = 0)
 print("Loading data...")
-X_train_full, y_train_full = load_data('train.csv', data_dir='data/raw')
-X_test_final, y_test_final = load_data('test.csv', data_dir='data/raw')
+X_train_full, y_train_full = load_data('../data/raw/train.csv')
+X_test_final, y_test_final = load_data('../data/raw/test.csv')
 print(f"Training samples: {len(X_train_full):,}")
 print(f"Test samples: {len(X_test_final):,}")
 
@@ -277,7 +277,7 @@ plt.title('Confusion Matrix - Test Set (Random Forest)', fontsize=14, fontweight
 plt.xlabel('Predicted', fontsize=12)
 plt.ylabel('Actual', fontsize=12)
 plt.tight_layout()
-plt.savefig('rf_confusion_matrix.png', dpi=150)
+plt.savefig('../figures/rf_confusion_matrix.png', dpi=150)
 print("✓ Saved: rf_confusion_matrix.png (Test Set)")
 
 # ============================================================================
@@ -301,7 +301,7 @@ plt.ylabel('True Positive Rate', fontsize=12)
 plt.legend(loc="lower right", fontsize=11)
 plt.grid(alpha=0.3)
 plt.tight_layout()
-plt.savefig('rf_roc_curve.png', dpi=150)
+plt.savefig('../figures/rf_roc_curve.png', dpi=150)
 print("✓ Saved: rf_roc_curve.png (Test Set)")
 
 # ============================================================================
@@ -351,7 +351,7 @@ plt.xlabel('Relative Importance (Mean Decrease in Impurity)')
 plt.ylabel('Feature')
 plt.gca().invert_yaxis()  # Highest importance at the top
 plt.tight_layout()
-plt.savefig('rf_feature_importance.png')
+plt.savefig('../figures/rf_feature_importance.png')
 print("Saved rf_feature_importance.png")
 
 
@@ -384,7 +384,7 @@ plt.xlabel('Importance (with standard deviation across trees)')
 plt.title('Top 10 Feature Importances with Variability (Random Forest)')
 plt.gca().invert_yaxis()
 plt.tight_layout()
-plt.savefig('rf_feature_importance_with_std.png')
+plt.savefig('../figures/rf_feature_importance_with_std.png')
 print("Saved rf_feature_importance_with_std.png")
 
 # ============================================================================
@@ -477,7 +477,7 @@ plt.xlabel('Feature')
 plt.xticks(rotation=45, ha='right')
 plt.legend(title='Travel Class')
 plt.tight_layout()
-plt.savefig('rf_subgroup_class_comparison.png')
+plt.savefig('../figures/rf_subgroup_class_comparison.png')
 print("Saved rf_subgroup_class_comparison.png")
 
 # ============================================================================
@@ -500,7 +500,7 @@ plt.xlabel('Feature')
 plt.xticks(rotation=45, ha='right')
 plt.legend(title='Travel Type')
 plt.tight_layout()
-plt.savefig('rf_subgroup_type_comparison.png')
+plt.savefig('../figures/rf_subgroup_type_comparison.png')
 print("Saved rf_subgroup_type_comparison.png")
 
 

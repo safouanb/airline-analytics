@@ -35,7 +35,7 @@ from preprocessing import load_data, get_preprocessor
 # Following same approach as decision tree and random forest models
 # Focus on cross-validation instead of test set evaluation
 print("Loading training data...")
-X_train_full, y_train_full = load_data('train.csv', data_dir='data/raw')
+X_train_full, y_train_full = load_data('../data/raw/train.csv')
 print(f"Training samples: {len(X_train_full):,}")
 
 # ============================================================================
@@ -223,7 +223,7 @@ plt.xlabel('Absolute Coefficient Value (Impact on Log-Odds)')
 plt.ylabel('Feature')
 plt.gca().invert_yaxis()  # Highest importance at the top
 plt.tight_layout()
-plt.savefig('lr_feature_importance.png')
+plt.savefig('../figures/lr_feature_importance.png')
 print("Saved lr_feature_importance.png")
 
 # ============================================================================
@@ -262,7 +262,7 @@ for i, v in enumerate(aucs):
     ax2.text(i, v + 0.002, f'{v:.3f}', ha='center', fontweight='bold')
 
 plt.tight_layout()
-plt.savefig('lr_model_comparison.png')
+plt.savefig('../figures/lr_model_comparison.png')
 print("Saved lr_model_comparison.png")
 
 # ============================================================================
